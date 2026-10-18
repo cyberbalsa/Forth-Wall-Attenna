@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the already built local prototype. Run while Steam/game are closed."""
+"""Install local components while the game is closed. Close Steam to edit launch options."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -21,12 +21,7 @@ ALLOWED_DLLS = {
 }
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--steam-root', type=Path, default=Path.home() / '.local/share/Steam')
-    parser.add_argument('--steam-user', help='numeric Steam/userdata account directory; auto-detected when only one exists')
-    parser.add_argument('--set-launch-options', action='store_true')
-    args = parser.parse_args()
+def check_game_closed():
     for process in Path('/proc').iterdir():
         if not process.name.isdigit():
             continue
@@ -36,15 +31,29 @@ def main():
             continue
         if any(arg.lower().endswith((b'/legacy.exe', b'\\legacy.exe', b'/spaceengineers.exe', b'\\spaceengineers.exe')) for arg in argv):
             raise SystemExit('Close Space Engineers before installing.')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--steam-root', type=Path, default=Path.home() / '.local/share/Steam')
+    parser.add_argument('--steam-user', help='numeric Steam/userdata account directory; auto-detected when only one exists')
+    parser.add_argument('--set-launch-options', action='store_true')
+    parser.add_argument('--pluginhub', action='store_true',
+                        help='install only the block mod and token; Pulsar manages the plugin')
+    args = parser.parse_args()
+    if args.pluginhub and args.set_launch_options:
+        parser.error('--pluginhub uses your existing Pulsar setup; omit --set-launch-options')
+    check_game_closed()
     if args.set_launch_options and subprocess.run(['pgrep', '-x', 'steam'], stdout=subprocess.DEVNULL).returncode == 0:
         raise SystemExit('Close Steam before changing its launch options.')
     source = ROOT / 'src/ForthWall.Plugin/bin/Release/net48'
-    missing = ALLOWED_DLLS - {p.name for p in source.glob('*.dll')}
-    if missing:
-        raise SystemExit('Build first; missing runtime libraries: ' + ', '.join(sorted(missing)))
     pulsar = ROOT / '.tools/pulsar'
-    if not (pulsar / 'Legacy.exe').is_file():
-        raise SystemExit('Extract official Pulsar v2.4.3 win-x64 into .tools/pulsar first.')
+    if not args.pluginhub:
+        missing = ALLOWED_DLLS - {p.name for p in source.glob('*.dll')}
+        if missing:
+            raise SystemExit('Build first; missing runtime libraries: ' + ', '.join(sorted(missing)))
+        if not (pulsar / 'Legacy.exe').is_file():
+            raise SystemExit('Extract official Pulsar v2.4.3 win-x64 into .tools/pulsar first.')
     user_data = args.steam_root / 'steamapps/compatdata/244850/pfx/drive_c/users/steamuser/AppData/Roaming/SpaceEngineers'
     if not user_data.is_dir():
         raise SystemExit('Space Engineers Proton user-data directory not found.')
@@ -68,28 +77,29 @@ def main():
     backup.mkdir(parents=True, mode=0o700)
     runtime = pulsar / 'Legacy'
     target = runtime / 'Local/ForthWall.Plugin'
-    if target.exists():
-        shutil.copytree(target, backup / 'plugin')
-    target.mkdir(parents=True, exist_ok=True)
-    for name in ALLOWED_DLLS:
-        shutil.copy2(source / name, target / name)
-    profile = runtime / 'Profiles/Current.xml'
-    profile.parent.mkdir(parents=True, exist_ok=True)
-    if profile.exists():
-        shutil.copy2(profile, backup / 'Current.xml')
-        document = ET.parse(profile)
-    else:
-        document = ET.ElementTree(ET.Element('Profile'))
-    node = document.getroot()
-    for key in ('Name', 'GitHub', 'DevFolder', 'Local', 'Mods'):
-        if node.find(key) is None:
-            ET.SubElement(node, key)
-    node.find('Name').text = 'Current'
-    local = node.find('Local')
-    if not any(n.text == 'ForthWall.Plugin.dll' for n in local):
-        ET.SubElement(local, 'string').text = 'ForthWall.Plugin.dll'
-    ET.indent(document)
-    document.write(profile, encoding='utf-8', xml_declaration=True)
+    if not args.pluginhub:
+        if target.exists():
+            shutil.copytree(target, backup / 'plugin')
+        target.mkdir(parents=True, exist_ok=True)
+        for name in ALLOWED_DLLS:
+            shutil.copy2(source / name, target / name)
+        profile = runtime / 'Profiles/Current.xml'
+        profile.parent.mkdir(parents=True, exist_ok=True)
+        if profile.exists():
+            shutil.copy2(profile, backup / 'Current.xml')
+            document = ET.parse(profile)
+        else:
+            document = ET.ElementTree(ET.Element('Profile'))
+        node = document.getroot()
+        for key in ('Name', 'GitHub', 'DevFolder', 'Local', 'Mods'):
+            if node.find(key) is None:
+                ET.SubElement(node, key)
+        node.find('Name').text = 'Current'
+        local = node.find('Local')
+        if not any(n.text == 'ForthWall.Plugin.dll' for n in local):
+            ET.SubElement(local, 'string').text = 'ForthWall.Plugin.dll'
+        ET.indent(document)
+        document.write(profile, encoding='utf-8', xml_declaration=True)
     mod = user_data / 'Mods/ForthWallAttenna'
     if mod.exists():
         shutil.copytree(mod, backup / 'mod')
@@ -114,9 +124,13 @@ def main():
             file.flush()
             os.fsync(file.fileno())
         os.replace(temporary, config)
-    (backup / 'manifest.json').write_text(json.dumps({'pulsar': '2.4.3', 'previous_launch_options': old,
-       'launch_options': launch if args.set_launch_options else None, 'mod': str(mod), 'plugin': str(target)}, indent=2))
-    print('Installed plugin, local block mod, and private token file.')
+    (backup / 'manifest.json').write_text(json.dumps({'pulsar': None if args.pluginhub else '2.4.3', 'previous_launch_options': old,
+       'launch_options': launch if args.set_launch_options else None, 'mod': str(mod),
+       'plugin': None if args.pluginhub else str(target)}, indent=2))
+    if args.pluginhub:
+        print('Installed local block mod and private token file. Enable the plugin in Pulsar.')
+    else:
+        print('Installed plugin, local block mod, and private token file.')
     print('Steam launch options configured.' if args.set_launch_options else 'Steam launch options unchanged.')
     print('Backup:', backup)
     print('Enable the local ForthWallAttenna mod in a test world with in-game scripts enabled.')

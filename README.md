@@ -19,6 +19,10 @@ servers, live steering, and PB RPC are not implemented.
 
 ## Install
 
+If you already run Pulsar Legacy through Proton, follow the
+[Plugin Hub setup](#plugin-hub). The source installer below also sets up Pulsar
+and Steam's launch options.
+
 You need an x86-64 Linux machine with Steam and Space Engineers 1 installed.
 Launch the game through Proton once so it creates its user-data directory, then
 close both the game and Steam before running the installer.
@@ -76,6 +80,36 @@ settings and game arguments. With no other options, the result is:
 Setup saves installation backups under `artifacts/install-backups/`. Keep the
 checkout in place: Steam's launch option points to its wrapper and `.tools/pulsar`.
 
+## Plugin Hub
+
+The Plugin Hub listing is being submitted for review. Until it is accepted, use
+the [source installer](#install). The listing targets Pulsar Legacy on Proton;
+native Linux and the .NET 10 runtime are not supported yet.
+
+With [Pulsar](https://github.com/SpaceGT/Pulsar) already set up, you need Git and
+Python 3.11 or newer with `pip` and `venv`. Close the game, then prepare the local
+block mod and Python tools:
+
+```bash
+git clone https://github.com/cyberbalsa/Forth-Wall-Attenna.git "Forth Wall Attenna"
+cd "Forth Wall Attenna"
+bash scripts/bootstrap-python.sh
+.tools/venv/bin/python scripts/install-local.py --pluginhub
+```
+
+Use your existing checkout if you already have one. The `--pluginhub` installer
+copies the block definitions into `Mods/ForthWallAttenna`, creates a private token
+file if needed, and backs up any existing mod files. It leaves Pulsar's profile
+and Steam's launch options unchanged. Add `--steam-root PATH` for a different
+Steam root. This route needs neither the .NET SDK nor `protoc`; Pulsar compiles
+the plugin and downloads its Protobuf dependency.
+
+Once the listing is accepted, enable **Forth Wall Attenna** in Pulsar's plugin
+list. Disable any local `ForthWall.Plugin.dll` or development-folder copy first:
+two copies would compete for the gateway port. Restart through Pulsar, then add
+the local `ForthWallAttenna` mod to your world using the steps below. Plugin Hub
+installs the gateway code; the companion installer supplies the block mod.
+
 ## Load a world
 
 1. Start Space Engineers from Steam. Pulsar should load with it.
@@ -99,8 +133,8 @@ Continue with [USAGE.md](USAGE.md) for deployment and grid-control commands.
 
 ## Python tools only
 
-If the plugin is already installed, this sets up the client and examples without
-building the plugin:
+If the plugin and local block mod are already installed, this sets up the client
+and examples without building the plugin:
 
 ```bash
 bash scripts/bootstrap-python.sh
@@ -114,6 +148,11 @@ deployment, execution, waypoints, and autopilot commands. The
 
 ## Update, test, or remove
 
+For a Plugin Hub installation, close the game, run `git pull --ff-only`, then
+rerun the Python bootstrap and `install-local.py --pluginhub` commands above.
+Pulsar downloads plugin updates after they are accepted into Plugin Hub.
+
+For a source installation, use the following commands.
 Close the game before replacing the installed plugin. Steam can remain open when
 launch options are unchanged:
 
@@ -125,7 +164,7 @@ bash scripts/build.sh
 .tools/venv/bin/python scripts/install-local.py
 ```
 
-The build runs 14 core/transport tests and, when `.tools/venv` exists, 15 Python
+The build runs 14 core/transport tests and, when `.tools/venv` exists, 17 Python
 client, SDK, monitor, and setup tests. These checks run separately from live game
 tests. The plugin targets .NET Framework 4.8; the tests run on .NET 9.
 
@@ -140,3 +179,7 @@ Steam launch options. Previous options are recorded in the installation backup's
 Remove hub blocks and the local mod from any worlds you plan to keep using before
 deleting `Mods/ForthWallAttenna`. The installed files and log locations are listed
 in [USAGE.md](USAGE.md#files-and-connection-settings).
+
+Report bugs in [GitHub Issues](https://github.com/cyberbalsa/Forth-Wall-Attenna/issues).
+Include your game and Pulsar versions, the command you ran, and the error message.
+Keep `gateway.token` and authorization headers out of reports.

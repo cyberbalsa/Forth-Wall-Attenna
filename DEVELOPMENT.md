@@ -54,7 +54,12 @@ intermediate antennas retain the game's relay access rules.
 ### Validation completed on October 18, 2026
 
 - Plugin build against installed game assemblies: **0 warnings, 0 errors**.
-- **14 standalone core/transport tests** and **15 Python client/SDK/monitor/setup tests** pass.
+- **14 standalone core/transport tests** and **17 Python client/SDK/monitor/setup tests** pass.
+- Plugin Hub source compilation passes for the eight C# files selected by
+  `ForthWallAttenna.xml`, with Google.Protobuf 3.36.2 and .NET Framework 4.8 game
+  references. This standalone check ran Pulsar 2.4.3's compiler on .NET 9 with
+  the SDK's compatible Newtonsoft.Json library. Loading the combined assembly
+  through Plugin Hub in the game still needs a separate check.
 - Pulsar loaded the plugin and session component under the actual Proton installation.
 - The generated test world uses a large hub, an ordinary antenna-only relay, and
   an owned empty PB/Remote Control ship. Hub and target are 4 km apart; each radio
