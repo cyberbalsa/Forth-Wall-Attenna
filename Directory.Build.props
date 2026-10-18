@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <GameBin Condition="'$(GameBin)' == ''">$(SPACE_ENGINEERS_BIN64)</GameBin>
+  </PropertyGroup>
+</Project>

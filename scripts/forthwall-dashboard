@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ ! -x "$root/.tools/venv/bin/python" ]]; then
+  echo 'Create .tools/venv and install client/python first; see examples/python/README.md.' >&2
+  exit 1
+fi
+exec "$root/.tools/venv/bin/python" "$root/examples/python/status_dashboard.py" "$@"

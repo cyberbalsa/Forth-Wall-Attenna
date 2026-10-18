@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package forthwall.v1;
+option csharp_namespace = "ForthWall.Protocol";
+
+// One Envelope per binary WebSocket message, subprotocol forthwall.v1.
+// Authenticate the HTTP upgrade with Authorization: Bearer <token>.
+// This is Protobuf over WebSocket, not the HTTP/2 gRPC wire protocol.
+message Envelope {
+  uint32 protocol_version = 1; // Must be 1.
+  oneof body {
+    Request request = 10;
+    Response response = 11;
+    Event event = 12;
+  }
+}
+
+message Request {
+  uint64 id = 1; // Nonzero; unique among this connection's pending requests.
+  string session_id = 2; // World-generation token returned by ListHubs.
+  int64 hub_id = 3;
+  uint32 timeout_ms = 4; // Server applies its maximum and a default if zero.
+  oneof operation {
+    ListHubs list_hubs = 10;
+    Discover discover = 11;
+    ReadProgram read_program = 12;
+    Deploy deploy = 13;
+    Run run = 14;
+    Call call = 15;
+    GetStatus get_status = 16;
+    Subscribe subscribe = 17;
+    Unsubscribe unsubscribe = 18;
+    SendIgc send_igc = 19;
+    DiscoverControls discover_controls = 20;
+    GetControlStatus get_control_status = 21;
+    SetWaypoints set_waypoints = 22;
+    SetAutopilot set_autopilot = 23;
+  }
+}
+
+message ListHubs {}
+message Discover {}
+message ReadProgram { int64 block_id = 1; }
+message GetStatus { int64 block_id = 1; }
+message Deploy {
+  int64 block_id = 1;
+  string source = 2;
+  bool run_after_compile = 3; // Never implicitly call Main on upload.
+  string argument = 4;
+  string expected_source_sha256 = 5; // Optional optimistic concurrency guard.
+}
+message Run { int64 block_id = 1; string argument = 2; }
+message DiscoverControls {}
+message GetControlStatus { int64 block_id = 1; }
+message Waypoint { string name = 1; double x = 2; double y = 3; double z = 4; }
+enum FlightPattern { ONE_WAY = 0; PATROL = 1; CIRCLE = 2; }
+// Replaces the route and leaves autopilot OFF. Starting a mission is explicit.
+message SetWaypoints {
+  int64 block_id = 1;
+  repeated Waypoint waypoints = 2; // Up to 32 world-space points.
+  float speed_limit = 3; // Metres/second, (0, 100].
+  FlightPattern flight_pattern = 4;
+  bool disable_collision_avoidance = 5;
+  bool docking_mode = 6;
+}
+message SetAutopilot {
+  int64 block_id = 1;
+  bool enabled = 2;
+  bool dampeners_on_stop = 3;
+  bool stop_on_link_loss = 4; // False: autonomous mission survives loss of radio/laser route.
+}
+message Call {
+  int64 block_id = 1;
+  string method = 2;
+  bytes payload = 3; // Opaque application bytes; may be another Protobuf message.
+}
+message Subscribe { int64 block_id = 1; string topic = 2; }
+message Unsubscribe { uint64 subscription_id = 1; }
+message SendIgc {
+  int64 destination = 1; // Required for unicast; zero for broadcast.
+  string tag = 2;
+  bytes payload = 3;
+  bool broadcast = 4;
+}
+
+message Response {
+  uint64 id = 1;
+  string session_id = 2;
+  Error error = 3; // Absent on success; transport acceptance is not RPC completion.
+  MutationOutcome mutation_outcome = 4;
+  oneof result {
+    Blocks blocks = 10;
+    ProgramSource program = 11;
+    BlockStatus status = 12;
+    RpcResult rpc = 13;
+    Subscription subscription = 14;
+    Acknowledgement acknowledged = 15;
+    ControlStatus control_status = 16;
+  }
+}
+// Mutations are never automatically replayed. A timeout/disconnect after the
+// operation starts can leave the client uncertain; query status/source again.
+enum MutationOutcome {
+  NOT_STARTED = 0;
+  MAY_HAVE_APPLIED = 1;
+  APPLIED = 2;
+}
+message Blocks { repeated Block blocks = 1; }
+message Block {
+  int64 entity_id = 1;
+  int64 grid_id = 2;
+  string name = 3;
+  string grid_name = 4;
+  bool hub = 5;
+  bool working = 6;
+  bool remote_control = 7;
+}
+message ProgramSource { string source = 1; string sha256 = 2; }
+message BlockStatus {
+  int64 block_id = 1;
+  bool compiled = 2;
+  bool working = 3;
+  bool running = 4;
+  repeated string diagnostics = 5;
+  string output = 6;
+  string source_sha256 = 7;
+  bool initialized = 8;
+  string termination_reason = 9;
+  bool main_invoked = 10; // This request explicitly invoked Main.
+}
+message RpcResult { bytes payload = 1; }
+message Subscription { uint64 subscription_id = 1; }
+message Acknowledgement {}
+message ControlStatus {
+  int64 block_id = 1;
+  bool autopilot_enabled = 2;
+  bool under_control = 3;
+  bool dampeners = 4;
+  double speed = 5;
+  float speed_limit = 6;
+  Waypoint current_waypoint = 7;
+  bool stop_on_link_loss = 8;
+}
+
+message Event {
+  string session_id = 1;
+  uint64 subscription_id = 2;
+  uint64 sequence = 3; // Gaps identify dropped events for slow clients.
+  int64 hub_id = 4;
+  int64 source_id = 5;
+  string topic = 6;
+  bytes payload = 7;
+  uint64 simulation_tick = 8;
+  Error ended = 9; // If present, the subscription has ended.
+}
+
+message Error {
+  enum Code {
+    UNSPECIFIED = 0;
+    INVALID_REQUEST = 1;
+    NO_WORLD = 2;
+    WRONG_SESSION = 3;
+    NOT_FOUND = 4;
+    ACCESS_DENIED = 5;
+    UNREACHABLE = 6;
+    NOT_WORKING = 7;
+    COMPILE_FAILED = 8;
+    EXECUTION_FAILED = 9;
+    TIMEOUT = 10;
+    BUSY = 11;
+    SOURCE_CONFLICT = 12;
+    WORLD_UNLOADED = 13;
+    PROGRAM_REPLACED = 14;
+    UNSUPPORTED = 15;
+    INTERNAL = 16;
+  }
+  Code code = 1;
+  string message = 2;
+}

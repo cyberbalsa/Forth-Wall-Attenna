@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forthwall-antenna"
+version = "0.2.0"
+description = "Local Space Engineers antenna gateway client"
+requires-python = ">=3.11"
+dependencies = ["protobuf==7.36.2", "websockets==17.1"]
+
+[project.scripts]
+forthwall = "forthwall.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["forthwall*"]
