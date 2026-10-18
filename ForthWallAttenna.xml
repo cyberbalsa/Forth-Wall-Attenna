@@ -22,5 +22,5 @@ Setup and usage: https://github.com/cyberbalsa/Forth-Wall-Attenna#plugin-hub</De
   </NuGetReferences>
   <Runtimes>CLR</Runtimes>
   <Platforms>Proton</Platforms>
-  <Commit>face2dc3bec51bf9bd5f2f0eb6d6ecb0fe0eb3d8</Commit>
+  <Commit>68d608d398ef18a6458cdbed4e2ac76ea8fc01cf</Commit>
 </PluginData>

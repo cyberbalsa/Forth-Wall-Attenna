@@ -82,9 +82,10 @@ checkout in place: Steam's launch option points to its wrapper and `.tools/pulsa
 
 ## Plugin Hub
 
-The Plugin Hub listing is being submitted for review. Until it is accepted, use
-the [source installer](#install). The listing targets Pulsar Legacy on Proton;
-native Linux and the .NET 10 runtime are not supported yet.
+The [Plugin Hub submission](https://github.com/StarCpt/PluginHub/pull/259) is
+awaiting review. Until it is accepted, use the [source installer](#install).
+The listing targets Pulsar Legacy on Proton; native Linux and the .NET 10 runtime
+are not supported yet.
 
 With [Pulsar](https://github.com/SpaceGT/Pulsar) already set up, you need Git and
 Python 3.11 or newer with `pip` and `venv`. Close the game, then prepare the local
